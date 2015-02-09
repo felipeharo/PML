@@ -1,0 +1,66 @@
+---
+title: "Practical Machine Learning Project"
+author: "Felipe Haro"
+date: "Monday, February 09, 2015"
+output: html_document
+---
+## Overview
+Based on the data available at <http://groupware.les.inf.puc-rio.br/har>, this report seeks to show a model that is able to understand and predict how people do exercises. This is defined by the "class" variable of the dataset where "A" defines a well done exercise and the other classes define different common mistakes. The objective is to make a model that is able to predict the class based on the other 159 measured variables.
+
+## Cleaning the Data
+To download and read the files the following code was run (NA values can be empty values or NA values). The download code is commented:
+```{r echo=TRUE,cache=TRUE}
+library(caret)
+library(randomForest)
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv",destfile = "pml-training.csv")
+#download.file("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv",destfile = "pml-testing.csv")
+training<-read.csv("pml-training.csv",na.strings=c("","NA"))
+testing<-read.csv("pml-testing.csv")
+```
+If the variable has 1 NA value it will likely have more than 90% NA's, so for simplicity we leave only the variables that are complete
+```{r echo=TRUE}
+names<-as.character()
+for(i in 1:dim(training)[2]){
+  if(sum(is.na(training[names(training)[i]]))==0){
+    names<-c(names,names(training)[i])
+  }
+}
+subtraining<-training[names]
+```
+Then name of the user doesn't say anything and we will assume that all the users have the same characteristics, we remove that variable. We also remove all timestamps since it is a unique value that will never repeat itself in the future and doesn't help to predict. We remove X because it is just an ID of the measurement. Finally, new window and num window are beeing removed aswell because they give no interesting information to predict the test set.
+```{r echo=TRUE}
+subtraining<-subtraining[,-c(1,2,3,4,5,6,7)]
+```
+
+## Principal Component Analysis and Random Forest
+We use the PCA to create new components that eliminate correlation between variables within the dataset. The chosen threshold to make the decomposition is a correlation of 0.9. We use the Random Forest algorithm to build the prediction. Since it shows great results no other algorithm was tested. Instead of cross-validation, we can see the confusion matrix showing us the level of errors present for the training dataset.
+```{r echo=TRUE}
+trans <- preProcess(subtraining[-53], method  = "pca",thresh=0.9)
+trainPC<-predict(trans,subtraining[-53])
+modfit<-randomForest(trainPC,training$classe)
+modfit$confusion
+```
+With errors below 0.03 in almost all the cases, it can be said that the algorithm works amazingly and it can be immediately tested.
+
+## Running the Test
+The test data needs to be cleaned a little bit before running anything so it is coherent with the training dataset. We remove the NA and the variables that were also removed in the training dataset.
+```{r echo=TRUE}
+names2<-as.character()
+for(i in 1:dim(testing)[2]){
+  if(sum(is.na(testing[names(testing)[i]]))==0){
+    names2<-c(names2,names(testing)[i])
+  }
+}
+
+subtest<-testing[names2]
+subtest<-subtest[,-c(1,2,3,4,5,6,7,60)]
+```
+
+Finally we can run the test. We run the predict function using the preprocessed resultant from the training set and we use the fitted model of the training set to predict the classe value of the testing set.
+
+```{r echo=TRUE}
+testPC<-predict(trans,subtest)
+a<-predict(modfit,testPC)
+a
+```
+Check the results... If you did it right, you should have my same results. You wanted some figures? For what?
